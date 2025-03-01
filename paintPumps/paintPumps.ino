@@ -1,128 +1,179 @@
-#include <Adafruit_PWMServoDriver.h>
-#include <Wire.h>
+#include "Colors.h"
+#include "ColorPalettes.h"
 
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+#define NUM_PUMPS  7
 
-const int NUM_PUMPS = 7;
+bool ENABLE_COLOR_PATTERN = false;
+bool ENABLE_AXIDRAW = false;
 
-const int PUMP_PIN_RED = 12;
-const int PUMP_PIN_ORANGE = 11;
-const int PUMP_PIN_YELLOW = 10;
-const int PUMP_PIN_GREEN = 9;
-const int PUMP_PIN_BLUE = 8;
-const int PUMP_PIN_PURPLE = 7;
-const int PUMP_PIN_WATER = 6;
+ColorPattern colorPattern = RAINBOW_CYCLE;
 
-const int MOTOR_BUTTON_PIN = 5;
-const int PRIME_BUTTON_PIN = 4;
-
+// ROYGBV, WATER
+const int PUMP_PINS[NUM_PUMPS]         = {12, 11, 10, 9, 8, 7, 6};
+const int PRIME_BUTTON_PINS[NUM_PUMPS] = {A0, A1, A2, A3, 4, 5, A6}; // A4 and A5 are hardwired for I2C, can't override
 const int AXIDRAW_PIN = 2;
 
-// motor + button state
-bool motorState = false;
-bool lastMotorButtonState = LOW;
-bool motorButtonState = LOW;
-bool motorRunning = false;
+// motor state
+bool motorState[NUM_PUMPS]             = {false, false, false, false, false, false, false};
+bool isDrawing = false;
 
 unsigned long previousMillis = 0;
-const unsigned long motorOnTime = 50;  
-const unsigned long motorOffTime = 4000; 
+const unsigned long motorOnTime = 20;  
+const unsigned long motorOffTime = 2000; 
+// const unsigned long motorOnTime = 50;  
+// const unsigned long motorOffTime = 4000; 
 
 // prime button state
-int primeState = false;
-bool lastPrimeButtonState = LOW;
-bool primeButtonState = LOW;
+bool primeState[NUM_PUMPS]             = {false, false, false, false, false, false, false};
+bool lastPrimeButtonState[NUM_PUMPS]   = {false, false, false, false, false, false, false};
+bool primeButtonState[NUM_PUMPS]       = {false, false, false, false, false, false, false};
 
 // axidraw pen state
 int penDownState = LOW;
 int lastPenDownState = LOW;
 
+/**
+  IMPORTANT
+  The color/motor number that is active, i.e. can dispense paint
+*/
+int activeColor = RED;
+
 void setup() {
   Serial.begin(9600);
-  pwm.begin();
-  pwm.setOscillatorFrequency(27000000);
-  pwm.setPWMFreq(1600);
-  Wire.setClock(400000);
+
+  for(int i=0; i < NUM_PUMPS; i++) {
+    pinMode(PUMP_PINS[i], OUTPUT);
+    pinMode(PRIME_BUTTON_PINS[i], INPUT);
+  }
 
   pinMode(AXIDRAW_PIN, INPUT);
-  pinMode(PUMP_PIN_A, OUTPUT);
-  pinMode(PUMP_PIN_B, OUTPUT);
-  pinMode(MOTOR_BUTTON_PIN, INPUT);
-  pinMode(PRIME_BUTTON_PIN, INPUT);
+
+  if (ENABLE_COLOR_PATTERN) {
+    colorPattern.startPattern();
+  }
 }
 
 void loop() {
-  motorButtonState = digitalRead(MOTOR_BUTTON_PIN);
-  primeButtonState = digitalRead(PRIME_BUTTON_PIN);
-  penDownState  = digitalRead(AXIDRAW_PIN);
+  // digitalWrite(PUMP_PINS[0], HIGH);
+  // delay(2000);
+  // digitalWrite(PUMP_PINS[0], LOW);
+  // digitalWrite(PUMP_PINS[1], HIGH);
+  // delay(2000);
+  // digitalWrite(PUMP_PINS[1], LOW);
+  // digitalWrite(PUMP_PINS[3], HIGH);
+  // delay(2000);
+  // digitalWrite(PUMP_PINS[3], LOW);
+  // digitalWrite(PUMP_PINS[5], HIGH);
+  // delay(2000);
+  // digitalWrite(PUMP_PINS[5], LOW);
+  // pumpOn(0);
+  // delay(2000);
+  // pumpOn(1);
+  // delay(2000);
+  // pumpOn(3);
+  // delay(2000);
+  // pumpOn(5);
+  // delay(2000);
+  for(int i = 0; i < NUM_PUMPS; i++) {
+    primeButtonState[i] = digitalRead(PRIME_BUTTON_PINS[i]);
+  }
+  penDownState = digitalRead(AXIDRAW_PIN);
 
-  if (penDownState != lastPenDownState) {
+  // if drawing sketch, obey pen up/down state
+  if (penDownState != lastPenDownState && ENABLE_AXIDRAW) {
     if (penDownState == HIGH) {
-      Serial.println("Pen is DOWN");
-      motorState = true;
-      // motorRunning = true;
-      // previousMillis = millis();
+      motorState[activeColor] = true;
     } else {
-      Serial.println("Pen is UP");
-      motorState = false;
-      // motorRunning = false;
+      motorState[activeColor] = false;
     }
     lastPenDownState = penDownState;
-  } else {
-    if (primeButtonState == LOW && lastPrimeButtonState == HIGH) {
-      primeState = !primeState;
-      previousMillis = millis();
-    }
 
-    if (motorButtonState == LOW && lastMotorButtonState == HIGH) {
-      motorState = !motorState;
-      motorRunning = false;     
-      previousMillis = millis(); 
+    if (ENABLE_COLOR_PATTERN) {
+      // can update `activeColor`
+      colorPattern.updateColorPattern();
+    }
+  } 
+  // check all prime pump buttons, only one HIGH at a time
+  else {
+    for(int i = 0; i < NUM_PUMPS; i++) {
+      if (primeButtonState[i] == LOW && lastPrimeButtonState[i] == HIGH) {
+        primeState[i] = !primeState[i];
+
+        // if one just enabled, disable others
+        if (primeState[i]) {
+          Serial.print("Priming pump ");
+          Serial.println(i);
+          activeColor = i;
+          for (int j = 0; j < NUM_PUMPS; j++) {
+            if (j != i) {
+              primeState[j] = false;
+            }
+          }
+        } else {
+          Serial.print("Stopping pump ");
+          Serial.println(i);
+        }
+        previousMillis = millis();
+      }
     }
   }
 
-  lastMotorButtonState = motorButtonState;
-  lastPrimeButtonState = primeButtonState;
+  for(int i = 0; i < NUM_PUMPS; i++) {
+    lastPrimeButtonState[i] = primeButtonState[i];
+  }
 
-  if (motorState || primeState) {
+  if (any(motorState) || any(primeState)) {
     unsigned long currentMillis = millis();
 
-    if (primeState) {
-      motorRunning = true;
+    if (any(primeState)) {
+      isDrawing = true;
       previousMillis = currentMillis;
-    } else if (motorRunning && currentMillis - previousMillis >= motorOnTime) {
+    } else if (isDrawing && currentMillis - previousMillis >= motorOnTime) {
       Serial.println("MOTOR OFF");
-      // pumpOff();
-      motorRunning = false;
+      isDrawing = false;
       previousMillis = currentMillis;
-    } else if (!motorRunning && currentMillis - previousMillis >= motorOffTime) {
+    } else if (!isDrawing && currentMillis - previousMillis >= motorOffTime) {
       Serial.println("MOTOR ON");
-      motorRunning = true;
-      // pumpOn();
+      isDrawing = true;
       previousMillis = currentMillis;
     }
   } else {
-    motorRunning = false;
-    // pumpOff();
+    isDrawing = false;
   }
 
-  if (motorRunning) {
-    pumpOn();
+  if (isDrawing) {
+    pumpOn(activeColor);
   } else {
-    pumpOff();
+    pumpOff(activeColor);
   }
 
   delay(1);
 }
 
-void pumpOn() {
-  digitalWrite(PUMP_PIN_A, HIGH);
-  digitalWrite(PUMP_PIN_B, LOW);
-  // motorRunning = true;
+/**
+ Enforce only one pump on at a time
+ One pin is always low
+*/
+void pumpOn(int i) {
+  for(int j=0; j < NUM_PUMPS; j++) {
+    if (i != j) {
+      pumpOff(j);
+    }
+  }
+  digitalWrite(PUMP_PINS[i], HIGH);
 }
 
-void pumpOff() {
-  digitalWrite(PUMP_PIN_A, LOW);
-  digitalWrite(PUMP_PIN_B, LOW);
-  // motorRunning = false;
+/**
+ Pump off, one pin is always low
+*/
+void pumpOff(int i) {
+  digitalWrite(PUMP_PINS[i], LOW);
+}
+
+
+bool any(bool arr[NUM_PUMPS]) {
+  for (int i = 0; i < NUM_PUMPS; i++) {
+    if (arr[i]) return true;
+  }
+  return false;
 }
