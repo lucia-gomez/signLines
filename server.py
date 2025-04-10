@@ -2,8 +2,11 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from pyaxidraw import axidraw
 
+import base64
+import os
 import serial
 import serial.tools.list_ports
+import tempfile
 import time
 
 PORT = 8080
@@ -79,22 +82,39 @@ def complete():
 def start():
 		try:
 				payload = request.get_json()
-				filename = payload.get("filename")
+				svg_base64 = payload.get('file')
 				color_idx = payload.get("colorIdx")
 				
-				if not isinstance(filename, str) or not isinstance(color_idx, int):
+				if not isinstance(svg_base64, str) or not isinstance(color_idx, int):
 						raise ValueError("Invalid payload")
 				
-				on_start_plot(filename, color_idx)
+				svg_data = base64.b64decode(svg_base64)
+				with tempfile.NamedTemporaryFile(delete=False, suffix='.svg') as temp_file:
+					temp_file.write(svg_data)
+					temp_file_path = temp_file.name
+				
+				on_start_plot(temp_file_path, color_idx)
+				os.remove(temp_file_path)
 				return 'Success', 200
 		except Exception as e:
 				print(f"Error parsing body: {e}")
 				return jsonify({"error": "Invalid payload"}), 400
+
+
+@app.route('/off', methods=['POST'])
+def off():
+	ad.plot_setup()
+	ad.options.mode = "manual"
+	ad.options.manual_cmd = "disable_xy"
+	ad.plot_run()
+	return 'Success', 200
 		
 
 def on_start_plot(filename, color_idx):
 	info(f"Plotting {filename}...")
 	ad.params.use_b3_out = True
+	# ad.options.mode = "plot"
+	# ad.options.manual_cmd = "enable_xy"
 	
 	try:
 		prime_color(color_idx)
@@ -119,6 +139,10 @@ def on_plot_complete(color):
 	time.sleep(2)
 	water()
 	time.sleep(0.5)
+	ad.plot_setup()
+	ad.options.mode = "manual"
+	ad.options.manual_cmd = "disable_xy"
+	ad.plot_run()
 	return
 
 if __name__ == '__main__':
