@@ -122,4 +122,4 @@ def on_plot_complete(color):
 	return
 
 if __name__ == '__main__':
-		app.run(port=PORT, debug=True, threaded=True)
+		app.run(host='0.0.0.0', port=PORT, debug=True, threaded=True)
