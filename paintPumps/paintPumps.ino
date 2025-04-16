@@ -77,23 +77,24 @@ void loop() {
   else {
     for(int i = 0; i < NUM_PUMPS; i++) {
       if (primeButtonState[i] == LOW && lastPrimeButtonState[i] == HIGH) {
-        primeState[i] = !primeState[i];
+        handlePrimeButton(i, !primeState[i]);
+        // primeState[i] = !primeState[i];
 
-        // if one just enabled, disable others
-        if (primeState[i]) {
-          Serial.print("Priming pump ");
-          Serial.println(i);
-          activeColor = i;
-          for (int j = 0; j < NUM_PUMPS; j++) {
-            if (j != i) {
-              primeState[j] = false;
-            }
-          }
-        } else {
-          Serial.print("Stopping pump ");
-          Serial.println(i);
-        }
-        previousMillis = millis();
+        // // if one just enabled, disable others
+        // if (primeState[i]) {
+        //   Serial.print("Priming pump ");
+        //   Serial.println(i);
+        //   activeColor = i;
+        //   for (int j = 0; j < NUM_PUMPS; j++) {
+        //     if (j != i) {
+        //       primeState[j] = false;
+        //     }
+        //   }
+        // } else {
+        //   Serial.print("Stopping pump ");
+        //   Serial.println(i);
+        // }
+        // previousMillis = millis();
       }
     }
   }
@@ -163,6 +164,26 @@ bool any(bool arr[NUM_PUMPS]) {
   return false;
 }
 
+void handlePrimeButton(int i, bool newVal) {
+  primeState[i] = newVal;
+
+  // if one just enabled, disable others
+  if (primeState[i]) {
+    Serial.print("Priming pump ");
+    Serial.println(i);
+    activeColor = i;
+    for (int j = 0; j < NUM_PUMPS; j++) {
+      if (j != i) {
+        primeState[j] = false;
+      }
+    }
+  } else {
+    Serial.print("Stopping pump ");
+    Serial.println(i);
+  }
+  previousMillis = millis();
+}
+
 void readSerial() {
   if (Serial.available() > 0) {
     String message = Serial.readStringUntil('\n');
@@ -186,12 +207,11 @@ void readSerial() {
     } 
     else if (message.startsWith("PRIME:")) {
       String indexStr = message.substring(6);
+      String enableStr = message.substring(8);
       int index = indexStr.toInt();
+      bool enable = enableStr.toInt();
       if (index >= 0 && index < NUM_PUMPS) {
-        primeButtonState[index] = LOW;
-        lastPrimeButtonState[index] = HIGH;
-        // primeState[index] = !primeState[index];
-        // activeColor = index;
+        handlePrimeButton(index, enable);
       }
     }
     else {
