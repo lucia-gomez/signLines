@@ -29,6 +29,11 @@ def find_arduino():
 		return None
 
 
+@app.route('/', methods=['GET'])
+def ping():
+	return 'Success', 200
+
+
 def prime_color(i, enable):
 	msg = f"PRIME:{i}:{int(enable)}"
 	serial_write(msg)
@@ -52,6 +57,7 @@ def prime_endpoint():
 
 def water(enable):
 	prime_color(6, enable)
+	
 
 @app.route('/water', methods=['POST'])
 def water_endpoint():
@@ -141,8 +147,6 @@ def off():
 def on_start_plot(filename, color_idx):
 	info(f"Plotting {filename}...")
 	ad.params.use_b3_out = True
-	# ad.options.mode = "plot"
-	# ad.options.manual_cmd = "enable_xy"
 	
 	try:
 		time.sleep(0.5)

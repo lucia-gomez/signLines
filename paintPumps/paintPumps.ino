@@ -78,23 +78,6 @@ void loop() {
     for(int i = 0; i < NUM_PUMPS; i++) {
       if (primeButtonState[i] == LOW && lastPrimeButtonState[i] == HIGH) {
         handlePrimeButton(i, !primeState[i]);
-        // primeState[i] = !primeState[i];
-
-        // // if one just enabled, disable others
-        // if (primeState[i]) {
-        //   Serial.print("Priming pump ");
-        //   Serial.println(i);
-        //   activeColor = i;
-        //   for (int j = 0; j < NUM_PUMPS; j++) {
-        //     if (j != i) {
-        //       primeState[j] = false;
-        //     }
-        //   }
-        // } else {
-        //   Serial.print("Stopping pump ");
-        //   Serial.println(i);
-        // }
-        // previousMillis = millis();
       }
     }
   }
