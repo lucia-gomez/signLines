@@ -151,13 +151,13 @@ def on_start_plot(filename, color_idx):
 	try:
 		time.sleep(0.5)
 		prime_color(color_idx, True)
-		time.sleep(3 if color_idx == 1 or color_idx == 2 else 1)
+		time.sleep(2 if color_idx == 1 or color_idx == 2 else 1)
 		prime_color(color_idx, False)
 		# set_draw_mode(True)
-		time.sleep(3)
+		time.sleep(2)
 		ad.plot_setup(filename)
 		ad.options.pen_pos_up = 90
-		ad.options.pen_pos_down = 38  
+		ad.options.pen_pos_down = 50 
 		ad.plot_run()
 		ad.disconnect()
 		# set_draw_mode(False)
@@ -169,9 +169,9 @@ def on_plot_complete(color):
 	info(f"Finished plotting {color}")
 	time.sleep(1)
 	water(True)
-	time.sleep(5)
+	time.sleep(3)
 	water(False)
-	time.sleep(2)
+	time.sleep(1.5)
 	ad.plot_setup()
 	ad.options.mode = "manual"
 	ad.options.manual_cmd = "disable_xy"
